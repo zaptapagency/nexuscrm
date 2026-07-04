@@ -1,0 +1,287 @@
+// NexusCRM Prisma schema.
+// Uses only portable features so the datasource can be swapped to PostgreSQL
+// by changing `provider` to "postgresql" and the DATABASE_URL. Enum-like values
+// are modelled as strings validated by Zod at the application boundary to keep
+// SQLite compatibility.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("REP") // ADMIN | MANAGER | REP
+  active       Boolean  @default(true)
+  avatarColor  String   @default("#6366f1")
+  theme        String   @default("system") // system | light | dark
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedContacts  Contact[]  @relation("ContactOwner")
+  ownedCompanies Company[]  @relation("CompanyOwner")
+  ownedDeals     Deal[]     @relation("DealOwner")
+  assignedTasks  Task[]     @relation("TaskAssignee")
+  assignedTickets Ticket[]  @relation("TicketAssignee")
+  notes          Note[]
+  activities     Activity[]
+  campaigns      Campaign[]
+  segments       Segment[]
+  forms          Form[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?
+  industry  String?
+  size      String? // 1-10 | 11-50 | 51-200 | 201-500 | 500+
+  phone     String?
+  city      String?
+  country   String?
+  website   String?
+  ownerId   String?
+  owner     User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts   Contact[]
+  deals      Deal[]
+  activities Activity[]
+
+  @@index([name])
+  @@index([ownerId])
+}
+
+model Contact {
+  id             String   @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String   @unique
+  phone          String?
+  jobTitle       String?
+  lifecycleStage String   @default("LEAD") // LEAD | MQL | SQL | OPPORTUNITY | CUSTOMER
+  companyId      String?
+  company        Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerId        String?
+  owner          User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  source         String? // form name, import, manual
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  deals       Deal[]
+  tasks       Task[]
+  tickets     Ticket[]
+  notes       Note[]
+  activities  Activity[]
+  submissions FormSubmission[]
+  recipients  CampaignRecipient[]
+
+  @@index([lifecycleStage])
+  @@index([ownerId])
+  @@index([companyId])
+  @@index([lastName])
+}
+
+model Deal {
+  id        String   @id @default(cuid())
+  name      String
+  amount    Float    @default(0)
+  stage     String   @default("PROSPECTING") // PROSPECTING | QUALIFIED | PROPOSAL | NEGOTIATION | CLOSED_WON | CLOSED_LOST
+  closeDate DateTime?
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerId   String?
+  owner     User?    @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  closedAt  DateTime?
+
+  tasks      Task[]
+  notes      Note[]
+  activities Activity[]
+
+  @@index([stage])
+  @@index([ownerId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  priority    String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([assigneeId])
+  @@index([completed])
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  subject     String
+  description String?
+  status      String   @default("NEW") // NEW | OPEN | WAITING | RESOLVED | CLOSED
+  priority    String   @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assigneeId  String?
+  assignee    User?    @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+
+  activities Activity[]
+
+  @@index([status])
+  @@index([assigneeId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  body      String
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+  @@index([dealId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  type      String   // CREATED | UPDATED | STAGE_CHANGED | NOTE_ADDED | EMAIL_SENT | TASK_COMPLETED | FORM_SUBMITTED | TICKET_STATUS
+  message   String
+  metadata  String? // JSON string
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+  @@index([dealId])
+  @@index([createdAt])
+}
+
+model Segment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  filters     String   // JSON: { lifecycleStage?, ownerId?, companyId?, createdAfter?, createdBefore? }
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  body        String   // HTML
+  fromName    String   @default("NexusCRM")
+  status      String   @default("DRAFT") // DRAFT | SENT
+  segmentId   String?
+  segment     Segment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipients CampaignRecipient[]
+}
+
+model CampaignRecipient {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  email      String
+  opened     Boolean  @default(false)
+  openedAt   DateTime?
+  clicked    Boolean  @default(false)
+  clickedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId])
+}
+
+// Emails written by the LocalEmailProvider — rendered in the in-app Outbox.
+model OutboxEmail {
+  id         String   @id @default(cuid())
+  toEmail    String
+  toName     String?
+  fromName   String
+  subject    String
+  body       String
+  campaignId String?
+  recipientId String?
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+model Form {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  slug        String   @unique
+  fields      String   // JSON array of { id, type, label, placeholder, required, options }
+  submitText  String   @default("Submit")
+  successMessage String @default("Thanks! We'll be in touch soon.")
+  published   Boolean  @default(true)
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions FormSubmission[]
+}
+
+model FormSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  data      String   // JSON of submitted values
+  createdAt DateTime @default(now())
+
+  @@index([formId])
+}
