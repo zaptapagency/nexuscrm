@@ -38,6 +38,8 @@ export const OPEN_DEAL_STAGES: DealStage[] = [
   "NEGOTIATION",
 ];
 
+export const CLOSED_DEAL_STAGES: DealStage[] = ["CLOSED_WON", "CLOSED_LOST"];
+
 export const TICKET_STATUSES = ["NEW", "OPEN", "WAITING", "RESOLVED", "CLOSED"] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
@@ -48,6 +50,8 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   RESOLVED: "Resolved",
   CLOSED: "Closed",
 };
+
+export const RESOLVED_TICKET_STATUSES = ["RESOLVED", "CLOSED"] as const;
 
 export const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 export type Priority = (typeof PRIORITIES)[number];
