@@ -8,7 +8,8 @@
   "deploy": {
     "numReplicas": 1,
     "restartPolicyType": "always",
-    "sleepApplication": false
+    "sleepApplication": false,
+    "preDeployCommand": "npm run db:push && npm run db:seed"
   },
   "env": {
     "NEXTAUTH_URL": "${{ public.RAILWAY_PUBLIC_DOMAIN }}",
