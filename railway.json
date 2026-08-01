@@ -8,9 +8,7 @@
   "deploy": {
     "numReplicas": 1,
     "restartPolicyType": "always",
-    "restartPolicyMaxRetries": 0,
-    "sleepApplication": false,
-    "restartPolicyMaxRetryDuration": 0
+    "sleepApplication": false
   },
   "env": {
     "NEXTAUTH_URL": "${{ public.RAILWAY_PUBLIC_DOMAIN }}",
