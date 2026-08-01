@@ -3,13 +3,12 @@
   "build": {
     "builder": "nixpacks",
     "buildCommand": "npm install && npm run build",
-    "startCommand": "npm run start"
+    "startCommand": "npm run db:push && npm run db:seed && npm run start"
   },
   "deploy": {
     "numReplicas": 1,
     "restartPolicyType": "always",
-    "sleepApplication": false,
-    "preDeployCommand": "npm run db:push && npm run db:seed"
+    "sleepApplication": false
   },
   "env": {
     "NEXTAUTH_URL": "${{ public.RAILWAY_PUBLIC_DOMAIN }}",
