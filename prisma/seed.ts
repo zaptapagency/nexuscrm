@@ -84,7 +84,14 @@ const JOB_TITLES = [
 ];
 
 async function main() {
-  console.log("Resetting data...");
+  // Check if data already exists to avoid wiping production data
+  const existingUsers = await prisma.user.count();
+  if (existingUsers > 0) {
+    console.log("Database already seeded. Skipping seed to preserve existing data.");
+    return;
+  }
+
+  console.log("Seeding database with demo data...");
   // Order matters for FK integrity.
   await prisma.formSubmission.deleteMany();
   await prisma.form.deleteMany();
